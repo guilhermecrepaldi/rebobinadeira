@@ -1,0 +1,35 @@
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+
+router = APIRouter()
+
+
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: list[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
+
+    async def broadcast(self, message: dict):
+        for conn in self.active_connections:
+            try:
+                await conn.send_json(message)
+            except Exception:
+                pass
+
+
+manager = ConnectionManager()
+
+
+@router.websocket("/defeitos")
+async def websocket_defeitos(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
